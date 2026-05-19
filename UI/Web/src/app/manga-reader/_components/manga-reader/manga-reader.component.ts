@@ -202,6 +202,7 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Şu an çizilen censor region için sürükleme state'i */
   private censorDragStart: { x: number; y: number } | null = null;
   private censorContainerRect: DOMRect | null = null;
+  censorPreview: { x: number; y: number; w: number; h: number } | null = null;
 
   /**
    * If this is true, chapters will be fetched in the order of a reading list, rather than natural series order.
@@ -2015,7 +2016,22 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
     };
   }
 
+  onCensorMouseMove(event: MouseEvent): void {
+    if (!this.censorMode() || !this.censorDragStart || !this.censorContainerRect) return;
+    const rect = this.censorContainerRect;
+    const curX = event.clientX - rect.left;
+    const curY = event.clientY - rect.top;
+    this.censorPreview = {
+      x: Math.min(this.censorDragStart.x, curX),
+      y: Math.min(this.censorDragStart.y, curY),
+      w: Math.abs(curX - this.censorDragStart.x),
+      h: Math.abs(curY - this.censorDragStart.y),
+    };
+    this.cdRef.markForCheck();
+  }
+
   onCensorMouseUp(event: MouseEvent, container: HTMLElement): void {
+    this.censorPreview = null;
     if (!this.censorMode() || !this.censorDragStart || !this.censorContainerRect) return;
     event.preventDefault();
     event.stopPropagation();

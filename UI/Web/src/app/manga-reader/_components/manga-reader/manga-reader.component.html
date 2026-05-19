@@ -9,6 +9,11 @@
         }
       </div>
     }
+    @if (censorMode()) {
+      <div class="censor-fab" (click)="toggleCensorMode()" title="Sansür Modundan Çık">
+        <i class="fa fa-eye-slash" aria-hidden="true"></i>
+      </div>
+    }
     @if (menuOpen) {
       <div class="fixed-top overlay" animate.enter="slide-in-top" animate.leave="slide-out-top">
         <div style="display: flex; margin-top: 0.3125rem;">
@@ -152,6 +157,7 @@
            [class.censor-drawing-mode]="censorMode()"
            #censorContainer
            (mousedown)="onCensorMouseDown($event, censorContainer)"
+           (mousemove)="onCensorMouseMove($event)"
            (mouseup)="onCensorMouseUp($event, censorContainer)">
         @for (region of currentPageCensors; track $index) {
           <div class="censor-region"
@@ -163,6 +169,14 @@
                [style.width.%]="region.wPct * 100"
                [style.height.%]="region.hPct * 100"
                [style.--blur-amount]="region.blur + 'px'">
+          </div>
+        }
+        @if (censorPreview) {
+          <div class="censor-preview"
+               [style.left.px]="censorPreview.x"
+               [style.top.px]="censorPreview.y"
+               [style.width.px]="censorPreview.w"
+               [style.height.px]="censorPreview.h">
           </div>
         }
       </div>
