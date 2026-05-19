@@ -2189,28 +2189,5 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pageCensorService.delete(this.chapterId, this.pageNum).subscribe();
   }
 
-  private convexHull(pts: { x: number; y: number }[]): { x: number; y: number }[] {
-    if (pts.length < 3) return pts;
-    const sorted = [...pts].sort((a, b) => a.x - b.x || a.y - b.y);
-    const cross = (o: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) =>
-      (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-    const lower: { x: number; y: number }[] = [];
-    for (const p of sorted) {
-      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0)
-        lower.pop();
-      lower.push(p);
-    }
-    const upper: { x: number; y: number }[] = [];
-    for (const p of [...sorted].reverse()) {
-      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0)
-        upper.pop();
-      upper.push(p);
-    }
-    lower.pop();
-    upper.pop();
-
-    return [...lower, ...upper];
-  }
-
   protected readonly ReadingProfileKind = ReadingProfileKind;
 }
