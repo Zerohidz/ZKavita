@@ -50,6 +50,7 @@ public class UnitOfWork : IUnitOfWork
         EmailHistoryRepository = new EmailHistoryRepository(_context, _mapper);
         AppUserReadingProfileRepository = new AppUserReadingProfileRepository(_context, _mapper);
         AnnotationRepository = new AnnotationRepository(_context, _mapper);
+        PageCensorRepository = new PageCensorRepository(_context, _mapper);
         EpubFontRepository = new EpubFontRepository(_context, _mapper);
         ReadingSessionRepository = new ReadingSessionRepository(_context, _mapper);
         ClientDeviceRepository = new ClientDeviceRepository(_context, _mapper);
@@ -85,6 +86,7 @@ public class UnitOfWork : IUnitOfWork
     public IEmailHistoryRepository EmailHistoryRepository { get; }
     public IAppUserReadingProfileRepository AppUserReadingProfileRepository { get; }
     public IAnnotationRepository AnnotationRepository { get; }
+    public IPageCensorRepository PageCensorRepository { get; }
     public IEpubFontRepository EpubFontRepository { get;  }
     public IReadingSessionRepository ReadingSessionRepository { get;  }
     public IClientDeviceRepository ClientDeviceRepository { get; }

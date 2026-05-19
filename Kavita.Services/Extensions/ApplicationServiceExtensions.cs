@@ -56,6 +56,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IKoreaderService, KoreaderService>();
         services.AddScoped<IFontService, FontService>();
         services.AddScoped<IAnnotationService, AnnotationService>();
+        services.AddScoped<IPageCensorService, PageCensorService>();
         services.AddScoped<IOpdsService, OpdsService>();
 
         services.AddScoped<IUrlValidationService, UrlValidationService>();

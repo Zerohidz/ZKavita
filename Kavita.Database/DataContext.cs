@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Kavita.API.Database;
 using Kavita.Database.Extensions;
 using Kavita.Models.DTOs.Progress;
+using Kavita.Models.DTOs.Reader;
 using Kavita.Models.Entities;
 using Kavita.Models.Entities.Enums;
 using Kavita.Models.Entities.Enums.ReadingList;
@@ -91,6 +92,7 @@ public sealed class DataContext : IdentityDbContext<AppUser, AppRole, int,
     public DbSet<AppUserChapterRating> AppUserChapterRating { get; set; } = null!;
     public DbSet<AppUserReadingProfile> AppUserReadingProfiles { get; set; } = null!;
     public DbSet<AppUserAnnotation> AppUserAnnotation { get; set; } = null!;
+    public DbSet<AppUserPageCensor> AppUserPageCensor { get; set; } = null!;
     public DbSet<EpubFont> EpubFont { get; set; } = null!;
     public DbSet<AppUserReadingSession> AppUserReadingSession { get; set; } = null!;
     public DbSet<AppUserReadingSessionActivityData> AppUserReadingSessionActivityData { get; set; } = null!;
@@ -340,6 +342,20 @@ public sealed class DataContext : IdentityDbContext<AppUser, AppRole, int,
             .PrimitiveCollection(a => a.Likes)
             .HasDefaultValue(new List<int>());
 
+        #endregion
+
+        #region PageCensors
+        builder.Entity<AppUserPageCensor>()
+            .Property(c => c.Regions)
+            .HasJsonConversion([])
+            .HasColumnType("TEXT")
+            .HasDefaultValue(new List<CensorRegion>());
+
+        builder.Entity<AppUserPageCensor>(entity =>
+        {
+            entity.HasIndex(c => new { c.AppUserId, c.ChapterId, c.PageIndex })
+                .HasDatabaseName("IX_AppUserPageCensor_AppUserId_ChapterId_PageIndex");
+        });
         #endregion
 
         #region Reading Sessions & History

@@ -32,6 +32,7 @@ public interface IUnitOfWork
     IEmailHistoryRepository EmailHistoryRepository { get; }
     IAppUserReadingProfileRepository AppUserReadingProfileRepository { get; }
     IAnnotationRepository AnnotationRepository { get; }
+    IPageCensorRepository PageCensorRepository { get; }
     IEpubFontRepository EpubFontRepository { get; }
     IReadingSessionRepository ReadingSessionRepository { get; }
     IClientDeviceRepository ClientDeviceRepository { get; }
