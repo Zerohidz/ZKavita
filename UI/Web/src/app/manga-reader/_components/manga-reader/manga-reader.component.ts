@@ -2102,13 +2102,13 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
     let region: CensorRegion;
 
     if (s.shapeMode === 'freehand') {
-      const hull = this.convexHull(this.freehandPoints);
+      const pts = this.freehandPoints;
       this.freehandPoints = [];
       this.censorContainerRect = null;
-      if (hull.length < 3) return;
+      if (pts.length < 3) return;
 
-      const xs = hull.map(p => p.x);
-      const ys = hull.map(p => p.y);
+      const xs = pts.map(p => p.x);
+      const ys = pts.map(p => p.y);
       const selX = Math.min(...xs);
       const selY = Math.min(...ys);
       const selW = Math.max(...xs) - selX;
@@ -2123,7 +2123,7 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
         style: s.overlayStyle,
         blur: s.previewBlur,
         shape: 'freehand',
-        points: hull.map(p => ({ xPct: (p.x - selX) / selW, yPct: (p.y - selY) / selH })),
+        points: pts.map(p => ({ xPct: (p.x - selX) / selW, yPct: (p.y - selY) / selH })),
       };
     } else {
       if (!this.censorDragStart) return;
