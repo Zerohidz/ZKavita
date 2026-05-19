@@ -265,4 +265,34 @@ $pointer-offset: 0.3125rem;
         background: $pagination-bg;
         z-index: 100;
     }
+}
+
+.censor-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+
+  &.censor-drawing-mode {
+    pointer-events: auto;
+    cursor: crosshair;
   }
+}
+
+.censor-region {
+  position: absolute;
+  pointer-events: none;
+
+  &.censor-black {
+    background: #000;
+  }
+
+  &.censor-blur {
+    backdrop-filter: blur(var(--blur-amount, 20px));
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  &.censor-ellipse {
+    border-radius: 50%;
+  }
+}

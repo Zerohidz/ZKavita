@@ -80,6 +80,8 @@ import {PageBookmark} from "../../../_models/readers/page-bookmark";
 import {KeyBindEvent, KeyBindService} from "../../../_services/key-bind.service";
 import {KeyBindTarget} from "../../../_models/preferences/preferences";
 import {EntityTitleService} from "../../../_services/entity-title.service";
+import {PageCensorService} from '../../../_services/page-censor.service';
+import {CensorRegion, PageCensor} from '../../../_models/readers/page-censor';
 
 
 const PREFETCH_PAGES = 10;
@@ -168,6 +170,7 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly mangaReaderService = inject(MangaReaderService);
   private readonly keyBindService = inject(KeyBindService);
   private readonly entityTitleService = inject(EntityTitleService);
+  private readonly pageCensorService = inject(PageCensorService);
 
   protected readonly KeyDirection = KeyDirection;
   protected readonly ReaderMode = ReaderMode;
@@ -193,6 +196,12 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
    * If this is true, we are reading a bookmark. ChapterId will be 0. There is no continuous reading. Progress is not saved. Bookmark control is removed.
    */
   bookmarkMode = signal<boolean>(false);
+  censorMode = signal<boolean>(false);
+  /** pageIndex → CensorRegion[] (mevcut chapter için) */
+  chapterCensors = new Map<number, CensorRegion[]>();
+  /** Şu an çizilen censor region için sürükleme state'i */
+  private censorDragStart: { x: number; y: number } | null = null;
+  private censorContainerRect: DOMRect | null = null;
 
   /**
    * If this is true, chapters will be fetched in the order of a reading list, rather than natural series order.
@@ -1146,7 +1155,7 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // From bookmarks, create map of pages to make lookup time O(1)
       this.setupBookmarks(results.bookmarks);
-
+      this.loadCensors();
 
       this.readerService.getNextChapter(this.seriesId, this.volumeId, this.chapterId, this.readingListId).subscribe(chapterId => {
         this.nextChapterId = chapterId;
@@ -1974,6 +1983,93 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
     data.widthOverride = modelSettings.widthSlider === 'none' ? null : modelSettings.widthSlider;
 
     return data;
+  }
+
+  private loadCensors(): void {
+    if (this.bookmarkMode()) return;
+    this.pageCensorService.getForChapter(this.chapterId).subscribe(censors => {
+      this.chapterCensors.clear();
+      for (const c of censors) {
+        this.chapterCensors.set(c.pageIndex, c.regions);
+      }
+      this.cdRef.markForCheck();
+    });
+  }
+
+  get currentPageCensors(): CensorRegion[] {
+    return this.chapterCensors.get(this.pageNum) ?? [];
+  }
+
+  toggleCensorMode(): void {
+    this.censorMode.update(v => !v);
+  }
+
+  onCensorMouseDown(event: MouseEvent, container: HTMLElement): void {
+    if (!this.censorMode()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.censorContainerRect = container.getBoundingClientRect();
+    this.censorDragStart = {
+      x: event.clientX - this.censorContainerRect.left,
+      y: event.clientY - this.censorContainerRect.top,
+    };
+  }
+
+  onCensorMouseUp(event: MouseEvent, container: HTMLElement): void {
+    if (!this.censorMode() || !this.censorDragStart || !this.censorContainerRect) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const rect = this.censorContainerRect;
+    const endX = event.clientX - rect.left;
+    const endY = event.clientY - rect.top;
+    const minDrag = 5;
+
+    const rawW = Math.abs(endX - this.censorDragStart.x);
+    const rawH = Math.abs(endY - this.censorDragStart.y);
+
+    if (rawW < minDrag || rawH < minDrag) {
+      this.censorDragStart = null;
+      this.censorContainerRect = null;
+      return;
+    }
+
+    const region: CensorRegion = {
+      xPct: Math.min(this.censorDragStart.x, endX) / rect.width,
+      yPct: Math.min(this.censorDragStart.y, endY) / rect.height,
+      wPct: rawW / rect.width,
+      hPct: rawH / rect.height,
+      style: 'black',
+      blur: 20,
+      shape: 'rect',
+    };
+
+    this.censorDragStart = null;
+    this.censorContainerRect = null;
+
+    const existing = this.chapterCensors.get(this.pageNum) ?? [];
+    const updated = [...existing, region];
+    this.chapterCensors.set(this.pageNum, updated);
+    this.cdRef.markForCheck();
+
+    const dto: PageCensor = {
+      id: 0,
+      chapterId: this.chapterId,
+      pageIndex: this.pageNum,
+      regions: updated,
+    };
+
+    this.pageCensorService.upsert(dto).subscribe(saved => {
+      this.chapterCensors.set(saved.pageIndex, saved.regions);
+      this.cdRef.markForCheck();
+    });
+  }
+
+  clearPageCensors(): void {
+    if (!this.chapterCensors.has(this.pageNum)) return;
+    this.chapterCensors.delete(this.pageNum);
+    this.cdRef.markForCheck();
+    this.pageCensorService.delete(this.chapterId, this.pageNum).subscribe();
   }
 
   protected readonly ReadingProfileKind = ReadingProfileKind;
