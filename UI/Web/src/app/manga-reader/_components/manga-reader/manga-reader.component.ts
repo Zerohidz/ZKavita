@@ -32,7 +32,7 @@ import {
   tap
 } from 'rxjs';
 import {ChangeContext, LabelType, NgxSliderModule, Options} from '@angular-slider/ngx-slider';
-import {FormBuilder, FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
+import {FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule} from '@angular/forms';
 import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
 import {ToastrService} from 'ngx-toastr';
 import {Stack} from 'src/app/shared/data-structures/stack';
@@ -131,7 +131,7 @@ const KEYBIND_TARGETS = [
     providers: [MangaReaderService],
   imports: [NgStyle, LoadingComponent, SwipeDirective, CanvasRendererComponent, SingleRendererComponent,
     DoubleRendererComponent, DoubleReverseRendererComponent, DoubleNoCoverRendererComponent, InfiniteScrollerComponent,
-    NgxSliderModule, ReactiveFormsModule, FittingIconPipe, ReaderModeIconPipe,
+    NgxSliderModule, FormsModule, ReactiveFormsModule, FittingIconPipe, ReaderModeIconPipe,
     FullscreenIconPipe, TranslocoDirective, PercentPipe, NgClass, AsyncPipe, DblClickDirective, NgbTooltip]
 })
 export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -199,10 +199,20 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
   censorMode = signal<boolean>(false);
   /** pageIndex → CensorRegion[] (mevcut chapter için) */
   chapterCensors = new Map<number, CensorRegion[]>();
-  /** Şu an çizilen censor region için sürükleme state'i */
+  deleteMode = false;
+
+  censorSettings = {
+    dragStyle:    (localStorage.getItem('kv_censor_drag_style')    ?? 'blur') as 'blur' | 'black',
+    overlayStyle: (localStorage.getItem('kv_censor_overlay_style') ?? 'blur') as 'blur' | 'black',
+    previewBlur:  Number(localStorage.getItem('kv_censor_blur'))   || 20,
+    shapeMode:    (localStorage.getItem('kv_censor_shape')         ?? 'rect') as 'rect' | 'ellipse' | 'freehand',
+  };
+
   private censorDragStart: { x: number; y: number } | null = null;
   private censorContainerRect: DOMRect | null = null;
   censorPreview: { x: number; y: number; w: number; h: number } | null = null;
+  private freehandPoints: { x: number; y: number }[] = [];
+  freehandClipPath: string | null = null;
 
   /**
    * If this is true, chapters will be fetched in the order of a reading list, rather than natural series order.
@@ -2001,8 +2011,41 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.chapterCensors.get(this.pageNum) ?? [];
   }
 
+  saveCensorSettings(): void {
+    localStorage.setItem('kv_censor_drag_style',    this.censorSettings.dragStyle);
+    localStorage.setItem('kv_censor_overlay_style', this.censorSettings.overlayStyle);
+    localStorage.setItem('kv_censor_blur',          String(this.censorSettings.previewBlur));
+    localStorage.setItem('kv_censor_shape',         this.censorSettings.shapeMode);
+  }
+
+  get censorPreviewStyle(): { [key: string]: string } {
+    const s = this.censorSettings;
+
+    return s.dragStyle === 'blur'
+      ? { backdropFilter: `blur(${s.previewBlur}px)`, background: 'rgba(0,0,0,0.15)', border: '2px dashed rgba(255,255,255,0.6)' }
+      : { background: 'rgba(0,0,0,0.7)', border: '2px dashed rgba(255,255,255,0.6)' };
+  }
+
+  regionStyle(region: CensorRegion): { [key: string]: string } {
+    return region.style === 'blur'
+      ? { backdropFilter: `blur(${region.blur}px)`, background: 'rgba(0,0,0,0.15)' }
+      : { background: '#000' };
+  }
+
+  regionClipPath(region: CensorRegion): string | null {
+    if (region.shape === 'ellipse') return 'ellipse(50% 50% at 50% 50%)';
+    if (region.shape === 'freehand' && region.points && region.points.length >= 3) {
+      return 'polygon(' + region.points.map(p => `${(p.xPct * 100).toFixed(2)}% ${(p.yPct * 100).toFixed(2)}%`).join(', ') + ')';
+    }
+
+    return null;
+  }
+
   toggleCensorMode(): void {
     this.censorMode.update(v => !v);
+    if (!this.censorMode()) {
+      this.deleteMode = false;
+    }
   }
 
   onCensorMouseDown(event: MouseEvent, container: HTMLElement): void {
@@ -2010,69 +2053,117 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     this.censorContainerRect = container.getBoundingClientRect();
-    this.censorDragStart = {
-      x: event.clientX - this.censorContainerRect.left,
-      y: event.clientY - this.censorContainerRect.top,
-    };
+    const x = event.clientX - this.censorContainerRect.left;
+    const y = event.clientY - this.censorContainerRect.top;
+
+    if (this.censorSettings.shapeMode === 'freehand') {
+      this.freehandPoints = [{ x, y }];
+      this.freehandClipPath = null;
+    } else {
+      this.censorDragStart = { x, y };
+    }
   }
 
   onCensorMouseMove(event: MouseEvent): void {
-    if (!this.censorMode() || !this.censorDragStart || !this.censorContainerRect) return;
+    if (!this.censorMode() || !this.censorContainerRect) return;
     const rect = this.censorContainerRect;
     const curX = event.clientX - rect.left;
     const curY = event.clientY - rect.top;
-    this.censorPreview = {
-      x: Math.min(this.censorDragStart.x, curX),
-      y: Math.min(this.censorDragStart.y, curY),
-      w: Math.abs(curX - this.censorDragStart.x),
-      h: Math.abs(curY - this.censorDragStart.y),
-    };
-    this.cdRef.markForCheck();
+
+    if (this.censorSettings.shapeMode === 'freehand' && this.freehandPoints.length > 0) {
+      const last = this.freehandPoints[this.freehandPoints.length - 1];
+      if (Math.hypot(curX - last.x, curY - last.y) >= 3) {
+        this.freehandPoints.push({ x: curX, y: curY });
+      }
+      const pts = [...this.freehandPoints, { x: curX, y: curY }];
+      this.freehandClipPath = 'polygon(' + pts.map(p => `${p.x.toFixed(1)}px ${p.y.toFixed(1)}px`).join(', ') + ')';
+      this.cdRef.markForCheck();
+    } else if (this.censorDragStart) {
+      this.censorPreview = {
+        x: Math.min(this.censorDragStart.x, curX),
+        y: Math.min(this.censorDragStart.y, curY),
+        w: Math.abs(curX - this.censorDragStart.x),
+        h: Math.abs(curY - this.censorDragStart.y),
+      };
+      this.cdRef.markForCheck();
+    }
   }
 
   onCensorMouseUp(event: MouseEvent, container: HTMLElement): void {
     this.censorPreview = null;
-    if (!this.censorMode() || !this.censorDragStart || !this.censorContainerRect) return;
+    this.freehandClipPath = null;
+
+    if (!this.censorMode() || !this.censorContainerRect) return;
     event.preventDefault();
     event.stopPropagation();
 
     const rect = this.censorContainerRect;
-    const endX = event.clientX - rect.left;
-    const endY = event.clientY - rect.top;
-    const minDrag = 5;
+    const s = this.censorSettings;
+    let region: CensorRegion;
 
-    const rawW = Math.abs(endX - this.censorDragStart.x);
-    const rawH = Math.abs(endY - this.censorDragStart.y);
-
-    if (rawW < minDrag || rawH < minDrag) {
-      this.censorDragStart = null;
+    if (s.shapeMode === 'freehand') {
+      const hull = this.convexHull(this.freehandPoints);
+      this.freehandPoints = [];
       this.censorContainerRect = null;
-      return;
-    }
+      if (hull.length < 3) return;
 
-    const region: CensorRegion = {
-      xPct: Math.min(this.censorDragStart.x, endX) / rect.width,
-      yPct: Math.min(this.censorDragStart.y, endY) / rect.height,
-      wPct: rawW / rect.width,
-      hPct: rawH / rect.height,
-      style: 'black',
-      blur: 20,
-      shape: 'rect',
-    };
+      const xs = hull.map(p => p.x);
+      const ys = hull.map(p => p.y);
+      const selX = Math.min(...xs);
+      const selY = Math.min(...ys);
+      const selW = Math.max(...xs) - selX;
+      const selH = Math.max(...ys) - selY;
+      if (selW < 5 || selH < 5) return;
+
+      region = {
+        xPct: selX / rect.width,
+        yPct: selY / rect.height,
+        wPct: selW / rect.width,
+        hPct: selH / rect.height,
+        style: s.overlayStyle,
+        blur: s.previewBlur,
+        shape: 'freehand',
+        points: hull.map(p => ({ xPct: (p.x - selX) / selW, yPct: (p.y - selY) / selH })),
+      };
+    } else {
+      if (!this.censorDragStart) return;
+      const endX = event.clientX - rect.left;
+      const endY = event.clientY - rect.top;
+      const rawW = Math.abs(endX - this.censorDragStart.x);
+      const rawH = Math.abs(endY - this.censorDragStart.y);
+
+      if (rawW < 5 || rawH < 5) {
+        this.censorDragStart = null;
+        this.censorContainerRect = null;
+        return;
+      }
+
+      region = {
+        xPct: Math.min(this.censorDragStart.x, endX) / rect.width,
+        yPct: Math.min(this.censorDragStart.y, endY) / rect.height,
+        wPct: rawW / rect.width,
+        hPct: rawH / rect.height,
+        style: s.overlayStyle,
+        blur: s.previewBlur,
+        shape: s.shapeMode,
+      };
+    }
 
     this.censorDragStart = null;
     this.censorContainerRect = null;
 
-    const existing = this.chapterCensors.get(this.pageNum) ?? [];
-    const updated = [...existing, region];
-    this.chapterCensors.set(this.pageNum, updated);
+    this.saveRegions([...(this.chapterCensors.get(this.pageNum) ?? []), region]);
+  }
+
+  private saveRegions(regions: CensorRegion[]): void {
+    this.chapterCensors.set(this.pageNum, regions);
     this.cdRef.markForCheck();
 
     const dto: PageCensor = {
       id: 0,
       chapterId: this.chapterId,
       pageIndex: this.pageNum,
-      regions: updated,
+      regions,
     };
 
     this.pageCensorService.upsert(dto).subscribe(saved => {
@@ -2081,11 +2172,44 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  removeRegion(index: number): void {
+    const regions = [...(this.chapterCensors.get(this.pageNum) ?? [])];
+    regions.splice(index, 1);
+    if (regions.length === 0) {
+      this.clearPageCensors();
+    } else {
+      this.saveRegions(regions);
+    }
+  }
+
   clearPageCensors(): void {
-    if (!this.chapterCensors.has(this.pageNum)) return;
     this.chapterCensors.delete(this.pageNum);
+    this.deleteMode = false;
     this.cdRef.markForCheck();
     this.pageCensorService.delete(this.chapterId, this.pageNum).subscribe();
+  }
+
+  private convexHull(pts: { x: number; y: number }[]): { x: number; y: number }[] {
+    if (pts.length < 3) return pts;
+    const sorted = [...pts].sort((a, b) => a.x - b.x || a.y - b.y);
+    const cross = (o: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) =>
+      (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const lower: { x: number; y: number }[] = [];
+    for (const p of sorted) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0)
+        lower.pop();
+      lower.push(p);
+    }
+    const upper: { x: number; y: number }[] = [];
+    for (const p of [...sorted].reverse()) {
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0)
+        upper.pop();
+      upper.push(p);
+    }
+    lower.pop();
+    upper.pop();
+
+    return [...lower, ...upper];
   }
 
   protected readonly ReadingProfileKind = ReadingProfileKind;

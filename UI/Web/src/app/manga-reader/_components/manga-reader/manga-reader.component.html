@@ -13,6 +13,41 @@
       <div class="censor-fab" (click)="toggleCensorMode()" title="Sansür Modundan Çık">
         <i class="fa fa-eye-slash" aria-hidden="true"></i>
       </div>
+      <div class="censor-settings-panel">
+        <label>Şekil
+          <select [(ngModel)]="censorSettings.shapeMode" (change)="saveCensorSettings()">
+            <option value="rect">Kare</option>
+            <option value="ellipse">Elips</option>
+            <option value="freehand">Kalem</option>
+          </select>
+        </label>
+        <label>Sürükleme
+          <select [(ngModel)]="censorSettings.dragStyle" (change)="saveCensorSettings()">
+            <option value="blur">Blur</option>
+            <option value="black">Siyah</option>
+          </select>
+        </label>
+        <label>Sansür
+          <select [(ngModel)]="censorSettings.overlayStyle" (change)="saveCensorSettings()">
+            <option value="blur">Blur</option>
+            <option value="black">Siyah</option>
+          </select>
+        </label>
+        @if (censorSettings.dragStyle === 'blur' || censorSettings.overlayStyle === 'blur') {
+          <label>Blur px
+            <input type="number" min="1" max="100" [(ngModel)]="censorSettings.previewBlur" (change)="saveCensorSettings()" />
+          </label>
+        }
+      </div>
+      @if (currentPageCensors.length > 0) {
+        <div class="censor-float-bar">
+          <span class="censor-count">✂ {{currentPageCensors.length}} sansür</span>
+          <button [class.active]="deleteMode" (click)="deleteMode = !deleteMode">
+            {{deleteMode ? 'Sil ✓' : 'Sil'}}
+          </button>
+          <button (click)="clearPageCensors()">Temizle</button>
+        </div>
+      }
     }
     @if (menuOpen) {
       <div class="fixed-top overlay" animate.enter="slide-in-top" animate.leave="slide-out-top">
@@ -154,29 +189,38 @@
       }
       <!-- Censor overlay: drag to draw in censor mode, display saved censors -->
       <div class="censor-overlay"
-           [class.censor-drawing-mode]="censorMode()"
+           [class.censor-drawing-mode]="censorMode() && !deleteMode"
+           [class.censor-delete-mode]="censorMode() && deleteMode"
            #censorContainer
            (mousedown)="onCensorMouseDown($event, censorContainer)"
            (mousemove)="onCensorMouseMove($event)"
            (mouseup)="onCensorMouseUp($event, censorContainer)">
         @for (region of currentPageCensors; track $index) {
           <div class="censor-region"
-               [class.censor-blur]="region.style === 'blur'"
-               [class.censor-black]="region.style === 'black'"
-               [class.censor-ellipse]="region.shape === 'ellipse'"
+               [class.delete-hoverable]="deleteMode"
+               [ngStyle]="regionStyle(region)"
                [style.left.%]="region.xPct * 100"
                [style.top.%]="region.yPct * 100"
                [style.width.%]="region.wPct * 100"
                [style.height.%]="region.hPct * 100"
-               [style.--blur-amount]="region.blur + 'px'">
+               [style.clip-path]="regionClipPath(region)"
+               (click)="deleteMode && removeRegion($index)">
           </div>
         }
         @if (censorPreview) {
           <div class="censor-preview"
+               [ngStyle]="censorPreviewStyle"
+               [class.censor-preview-ellipse]="censorSettings.shapeMode === 'ellipse'"
                [style.left.px]="censorPreview.x"
                [style.top.px]="censorPreview.y"
                [style.width.px]="censorPreview.w"
                [style.height.px]="censorPreview.h">
+          </div>
+        }
+        @if (freehandClipPath) {
+          <div class="censor-freehand-preview"
+               [ngStyle]="censorPreviewStyle"
+               [style.clip-path]="freehandClipPath">
           </div>
         }
       </div>
