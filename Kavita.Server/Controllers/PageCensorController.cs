@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Kavita.Server.Controllers;
 
+[Route("api/page-censor")]
 public class PageCensorController(IPageCensorService pageCensorService) : BaseApiController
 {
     [HttpGet("chapter/{chapterId:int}")]
