@@ -2023,7 +2023,7 @@ export class MangaReaderComponent implements OnInit, AfterViewInit, OnDestroy {
 
     return s.dragStyle === 'blur'
       ? { backdropFilter: `blur(${s.previewBlur}px)`, background: 'rgba(0,0,0,0.15)', border: '2px dashed rgba(255,255,255,0.6)' }
-      : { background: 'rgba(0,0,0,0.7)', border: '2px dashed rgba(255,255,255,0.6)' };
+      : { background: '#000', border: '2px dashed rgba(255,255,255,0.6)' };
   }
 
   regionStyle(region: CensorRegion): { [key: string]: string } {
