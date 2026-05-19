@@ -12,8 +12,6 @@ public class AppUserPageCensor : IEntityDate
     public Chapter Chapter { get; set; } = null!;
     public required int PageIndex { get; set; }
     public List<CensorRegion> Regions { get; set; } = [];
-    public required int AppUserId { get; set; }
-    public AppUser AppUser { get; set; } = null!;
     public DateTime Created { get; set; }
     public DateTime CreatedUtc { get; set; }
     public DateTime LastModified { get; set; }

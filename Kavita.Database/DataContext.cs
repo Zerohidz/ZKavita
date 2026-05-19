@@ -353,8 +353,9 @@ public sealed class DataContext : IdentityDbContext<AppUser, AppRole, int,
 
         builder.Entity<AppUserPageCensor>(entity =>
         {
-            entity.HasIndex(c => new { c.AppUserId, c.ChapterId, c.PageIndex })
-                .HasDatabaseName("IX_AppUserPageCensor_AppUserId_ChapterId_PageIndex");
+            entity.HasIndex(c => new { c.ChapterId, c.PageIndex })
+                .IsUnique()
+                .HasDatabaseName("IX_AppUserPageCensor_ChapterId_PageIndex");
         });
         #endregion
 

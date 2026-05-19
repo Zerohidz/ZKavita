@@ -12,11 +12,11 @@ namespace Kavita.Database.Repositories;
 
 public class PageCensorRepository(DataContext context, IMapper mapper) : IPageCensorRepository
 {
-    public async Task<List<PageCensorDto>> GetForChapterAsync(int userId, int chapterId, CancellationToken ct = default)
+    public async Task<List<PageCensorDto>> GetForChapterAsync(int chapterId, CancellationToken ct = default)
     {
         return await context.AppUserPageCensor
             .AsNoTracking()
-            .Where(c => c.AppUserId == userId && c.ChapterId == chapterId)
+            .Where(c => c.ChapterId == chapterId)
             .Select(c => new PageCensorDto
             {
                 Id = c.Id,
@@ -27,10 +27,10 @@ public class PageCensorRepository(DataContext context, IMapper mapper) : IPageCe
             .ToListAsync(ct);
     }
 
-    public async Task<AppUserPageCensor?> GetForPageAsync(int userId, int chapterId, int pageIndex, CancellationToken ct = default)
+    public async Task<AppUserPageCensor?> GetForPageAsync(int chapterId, int pageIndex, CancellationToken ct = default)
     {
         return await context.AppUserPageCensor
-            .FirstOrDefaultAsync(c => c.AppUserId == userId && c.ChapterId == chapterId && c.PageIndex == pageIndex, ct);
+            .FirstOrDefaultAsync(c => c.ChapterId == chapterId && c.PageIndex == pageIndex, ct);
     }
 
     public void Add(AppUserPageCensor censor)

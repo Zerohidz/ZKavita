@@ -14,14 +14,14 @@ public class PageCensorService(
     IUnitOfWork unitOfWork)
     : IPageCensorService
 {
-    public async Task<List<PageCensorDto>> GetForChapterAsync(int userId, int chapterId, CancellationToken ct = default)
+    public async Task<List<PageCensorDto>> GetForChapterAsync(int chapterId, CancellationToken ct = default)
     {
-        return await unitOfWork.PageCensorRepository.GetForChapterAsync(userId, chapterId, ct);
+        return await unitOfWork.PageCensorRepository.GetForChapterAsync(chapterId, ct);
     }
 
-    public async Task<PageCensorDto> UpsertAsync(int userId, PageCensorDto dto, CancellationToken ct = default)
+    public async Task<PageCensorDto> UpsertAsync(PageCensorDto dto, CancellationToken ct = default)
     {
-        var existing = await unitOfWork.PageCensorRepository.GetForPageAsync(userId, dto.ChapterId, dto.PageIndex, ct);
+        var existing = await unitOfWork.PageCensorRepository.GetForPageAsync(dto.ChapterId, dto.PageIndex, ct);
 
         if (existing != null)
         {
@@ -39,7 +39,6 @@ public class PageCensorService(
 
         var censor = new AppUserPageCensor
         {
-            AppUserId = userId,
             ChapterId = dto.ChapterId,
             PageIndex = dto.PageIndex,
             Regions = dto.Regions,
@@ -57,9 +56,9 @@ public class PageCensorService(
         };
     }
 
-    public async Task DeleteAsync(int userId, int chapterId, int pageIndex, CancellationToken ct = default)
+    public async Task DeleteAsync(int chapterId, int pageIndex, CancellationToken ct = default)
     {
-        var existing = await unitOfWork.PageCensorRepository.GetForPageAsync(userId, chapterId, pageIndex, ct);
+        var existing = await unitOfWork.PageCensorRepository.GetForPageAsync(chapterId, pageIndex, ct);
         if (existing == null) return;
 
         unitOfWork.PageCensorRepository.Remove(existing);

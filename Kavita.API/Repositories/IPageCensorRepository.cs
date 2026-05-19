@@ -8,8 +8,8 @@ namespace Kavita.API.Repositories;
 
 public interface IPageCensorRepository
 {
-    Task<List<PageCensorDto>> GetForChapterAsync(int userId, int chapterId, CancellationToken ct = default);
-    Task<AppUserPageCensor?> GetForPageAsync(int userId, int chapterId, int pageIndex, CancellationToken ct = default);
+    Task<List<PageCensorDto>> GetForChapterAsync(int chapterId, CancellationToken ct = default);
+    Task<AppUserPageCensor?> GetForPageAsync(int chapterId, int pageIndex, CancellationToken ct = default);
     void Add(AppUserPageCensor censor);
     void Remove(AppUserPageCensor censor);
 }

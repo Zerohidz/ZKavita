@@ -9,7 +9,7 @@
         }
       </div>
     }
-    @if (censorMode()) {
+    @if (censorMode() && accountService.hasAdminRole()) {
       <div class="censor-fab" (click)="toggleCensorMode()" title="Sansür Modundan Çık">
         <i class="fa fa-eye-slash" aria-hidden="true"></i>
       </div>
@@ -83,7 +83,7 @@
                 <span class="visually-hidden">{{t(CurrentPageBookmarked ? 'unbookmark-page-tooltip' : 'bookmark-page-tooltip')}}</span>
               </button>
             }
-            @if (!bookmarkMode()) {
+            @if (!bookmarkMode() && accountService.hasAdminRole()) {
               <button class="btn btn-icon" role="checkbox" [attr.aria-checked]="censorMode()"
                       [title]="censorMode() ? 'Sansür Modunu Kapat' : 'Sansür Modu'"
                       (click)="toggleCensorMode()">
